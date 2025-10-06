@@ -1,0 +1,19 @@
+# frontend/Dockerfile.dev
+
+# Usamos la misma imagen de Node.js
+FROM node:20-alpine
+
+# Establecemos el directorio de trabajo
+WORKDIR /app
+
+# Copiamos los archivos de paquetes
+COPY package*.json ./
+
+# Instalamos las dependencias
+RUN npm install
+
+# Exponemos el puerto por defecto de Vite
+EXPOSE 5173
+
+# El comando para iniciar el servidor de desarrollo de Vite
+CMD ["npm", "run", "dev"]
