@@ -12,6 +12,7 @@ export interface User {
   address: string;
   phone: string;
   profilePictureUrl: string;
+  points: number;
 }
 
 interface AuthContextType {

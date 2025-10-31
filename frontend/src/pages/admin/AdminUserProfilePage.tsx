@@ -3,13 +3,17 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 
-// --- Definimos las interfaces para los datos completos ---
+// --- Interfaces ---
 interface User {
   _id: string;
   name: string;
   email: string;
   role: string;
   createdAt: string;
+  profilePictureUrl: string | null;
+  address: string;
+  phone: string;
+  points: number;
 }
 
 interface UserMembership {
@@ -46,10 +50,10 @@ interface UserProfile {
   bookings: Booking[];
   checkIns: CheckIn[];
 }
-// --------------------------------------------------------
+// --------------------
 
 export default function AdminUserProfilePage() {
-  const { id } = useParams<{ id: string }>(); // Obtiene el ID del usuario desde la URL
+  const { id } = useParams<{ id: string }>();
   const { token } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -74,7 +78,7 @@ export default function AdminUserProfilePage() {
     fetchUserProfile();
   }, [id, token]);
 
-  // Funciones helpers para formatear fechas
+  // Funciones helpers
   const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString('es-ES');
   const formatDateTime = (dateStr: string | null) => {
     if (!dateStr) return '---';
@@ -84,88 +88,114 @@ export default function AdminUserProfilePage() {
   if (loading) return <p>Cargando perfil del usuario...</p>;
   if (!profile) return <p>No se encontró el perfil del usuario.</p>;
 
+  // URL de la imagen
+  const profileImageUrl = profile.user.profilePictureUrl
+    ? `http://localhost:5000${profile.user.profilePictureUrl}`
+    : `https://ui-avatars.com/api/?name=${profile.user.name}&background=F97316&color=fff`;
+
   return (
     <div className="space-y-8">
       <Link to="/admin/users" className="text-orange-600 hover:underline">&larr; Volver a la lista de usuarios</Link>
       
-      {/* 1. Tarjeta de Información del Usuario */}
+      {/* 1. Tarjeta de Información del Usuario (Versión corregida y única) */}
       <div className="p-6 bg-white rounded-lg shadow-md">
-        <h1 className="text-3xl font-bold text-gray-800">{profile.user.name}</h1>
-        <p className="text-lg text-gray-600">{profile.user.email}</p>
-        <p className="text-sm text-gray-400">Miembro desde: {formatDate(profile.user.createdAt)}</p>
+        <div className="flex flex-col md:flex-row items-center md:space-x-6">
+          <img
+            src={profileImageUrl}
+            alt="Foto de perfil"
+            className="w-24 h-24 rounded-full object-cover mb-4 md:mb-0"
+          />
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="text-3xl font-bold text-gray-800">{profile.user.name}</h1>
+            <p className="text-lg text-gray-600">{profile.user.email}</p>
+            <p className="text-gray-600">{profile.user.phone || 'Sin teléfono'}</p>
+            <p className="text-gray-600">{profile.user.address || 'Sin dirección'}</p>
+            <p className="text-sm text-gray-400">Miembro desde: {formatDate(profile.user.createdAt)}</p>
+          </div>
+          <div className="text-center bg-gray-50 p-4 rounded-lg mt-4 md:mt-0">
+            <div className="text-4xl font-bold text-orange-500">{profile.user.points}</div>
+            <div className="text-sm font-semibold text-gray-500">Puntos</div>
+          </div>
+        </div>
       </div>
 
       {/* 2. Historial de Membresías */}
       <div className="p-6 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Historial de Membresías</h2>
-        <table className="min-w-full">
-          <thead>
-            <tr>
-              <th className="py-2 px-3 text-left">Plan</th>
-              <th className="py-2 px-3 text-left">Clases Restantes</th>
-              <th className="py-2 px-3 text-left">Estado</th>
-              <th className="py-2 px-3 text-left">Fecha de Fin</th>
-            </tr>
-          </thead>
-          <tbody>
-            {profile.memberships.map(mem => (
-              <tr key={mem._id} className="border-t">
-                <td className="py-2 px-3">{mem.membership.name}</td>
-                <td className="py-2 px-3">{mem.classesRemaining}</td>
-                <td className="py-2 px-3">{mem.status}</td>
-                <td className="py-2 px-3">{formatDate(mem.endDate)}</td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="py-2 px-3 text-left">Plan</th>
+                <th className="py-2 px-3 text-left">Clases Restantes</th>
+                <th className="py-2 px-3 text-left">Estado</th>
+                <th className="py-2 px-3 text-left">Fecha de Fin</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {profile.memberships.map(mem => (
+                <tr key={mem._id} className="border-t">
+                  <td className="py-2 px-3">{mem.membership.name}</td>
+                  <td className="py-2 px-3">{mem.classesRemaining}</td>
+                  <td className="py-2 px-3">{mem.status}</td>
+                  <td className="py-2 px-3">{formatDate(mem.endDate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* 3. Historial de Reservas */}
       <div className="p-6 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Historial de Reservas</h2>
-        <table className="min-w-full">
-          <thead>
-            <tr>
-              <th className="py-2 px-3 text-left">Fecha de Clase</th>
-              <th className="py-2 px-3 text-left">Sucursal</th>
-              <th className="py-2 px-3 text-left">Horario</th>
-              <th className="py-2 px-3 text-left">Estado</th>
-            </tr>
-          </thead>
-          <tbody>
-            {profile.bookings.map(book => (
-              <tr key={book._id} className="border-t">
-                <td className="py-2 px-3">{formatDate(book.bookingDate)}</td>
-                <td className="py-2 px-3">{book.schedule.location.name}</td>
-                <td className="py-2 px-3">{book.schedule.startTime} - {book.schedule.endTime}</td>
-                <td className="py-2 px-3">{book.status}</td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="py-2 px-3 text-left">Fecha de Clase</th>
+                <th className="py-2 px-3 text-left">Sucursal</th>
+                <th className="py-2 px-3 text-left">Horario</th>
+                <th className="py-2 px-3 text-left">Estado</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {profile.bookings.map(book => (
+                <tr key={book._id} className="border-t">
+                  <td className="py-2 px-3">{formatDate(book.bookingDate)}</td>
+                  <td className="py-2 px-3">{book.schedule?.location?.name || 'N/A'}</td>
+                  <td className="py-2 px-3">{book.schedule?.startTime || 'N/A'} - {book.schedule?.endTime || 'N/A'}</td>
+                  <td className="py-2 px-3">{book.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* 4. Historial de Acceso (Check-ins) */}
       <div className="p-6 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Historial de Acceso</h2>
-        <table className="min-w-full">
-          <thead>
-            <tr>
-              <th className="py-2 px-3 text-left">Sucursal</th>
-              <th className="py-2 px-3 text-left">Hora de Entrada</th>
-              <th className="py-2 px-3 text-left">Hora de Salida</th>
-            </tr>
-          </thead>
-          <tbody>
-            {profile.checkIns.map(ci => (
-              <tr key={ci._id} className="border-t">
-                <td className="py-2 px-3">{ci.location.name}</td>
-                <td className="py-2 px-3">{formatDateTime(ci.checkInTime)}</td>
-                <td className="py-2 px-3">{formatDateTime(ci.checkOutTime)}</td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="py-2 px-3 text-left">Sucursal</th>
+                <th className="py-2 px-3 text-left">Hora de Entrada</th>
+                <th className="py-2 px-3 text-left">Hora de Salida</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {profile.checkIns.map(ci => (
+                <tr key={ci._id} className="border-t">
+                  <td className="py-2 px-3">{ci.location?.name || 'N/A'}</td>
+                  <td className="py-2 px-3">{formatDateTime(ci.checkInTime)}</td>
+                  <td className="py-2 px-3">{formatDateTime(ci.checkOutTime)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios, { AxiosError } from 'axios';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext'; // Importamos el tipo User
 import Modal from '../components/Modal'; // Para el modal de cancelación
 import { QRCodeSVG } from 'qrcode.react'; // Importamos el generador de QR
 
@@ -29,7 +29,7 @@ interface Booking {
 }
 
 export default function ClientDashboardPage() {
-  const { user, logout, token } = useAuth();
+  const { user, logout, token } = useAuth(); // 'user' ahora tiene 'points'
   const [memberships, setMemberships] = useState<UserMembership[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   
@@ -42,7 +42,6 @@ export default function ClientDashboardPage() {
   const fetchData = async () => {
     if (!token) return;
     try {
-      // Hacemos ambas peticiones en paralelo
       const [membershipsRes, bookingsRes] = await Promise.all([
         axios.get('http://localhost:5000/user-memberships/my-memberships', {
           headers: { Authorization: `Bearer ${token}` },
@@ -143,14 +142,14 @@ export default function ClientDashboardPage() {
               </Link>
             </div>
 
-            {/* --- SECCIÓN NUEVA DEL CÓDIGO QR --- */}
+            {/* Sección: Código QR */}
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Mi Pase de Acceso</h2>
               {user ? (
                 <div className="flex flex-col items-center">
                   <QRCodeSVG 
-                    value={user.id} // El QR contiene el ID del usuario
-                    size={256} // Tamaño del QR
+                    value={user.id}
+                    size={256}
                     className="mb-4"
                   />
                   <p className="text-gray-600">Muestra este código al staff para registrar tu entrada o salida.</p>
@@ -161,8 +160,17 @@ export default function ClientDashboardPage() {
             </div>
           </div>
 
-          {/* Columna Lateral: Mis Membresías */}
-          <div className="lg:col-span-1">
+          {/* Columna Lateral: Puntos y Membresías */}
+          <div className="lg:col-span-1 space-y-8">
+            
+            {/* Tarjeta de Puntos */}
+            <div className="bg-white p-6 rounded-lg shadow-md text-center">
+              <h2 className="text-2xl font-bold text-gray-800 mb-2">Mis Puntos</h2>
+              <p className="text-6xl font-extrabold text-orange-500">{user?.points || 0}</p>
+              <p className="text-gray-500 mt-2">¡Gana más puntos al comprar y asistir!</p>
+            </div>
+
+            {/* Tarjeta de Membresías */}
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Mis Membresías</h2>
               {memberships.filter(m => m.status === 'ACTIVE').length > 0 ? (
