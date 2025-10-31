@@ -20,6 +20,7 @@ import AdminMembershipsPage from '../pages/admin/AdminMembershipsPage';
 import AdminSchedulesPage from '../pages/admin/AdminSchedulesPage';
 import AdminLocationsPage from '../pages/admin/AdminLocationsPage';
 import AdminUserMembershipsPage from '../pages/admin/AdminUserMembershipsPage';
+import AdminScannerPage from '../pages/admin/AdminScannerPage';
 
 export const router = createBrowserRouter([
   {
@@ -48,6 +49,7 @@ export const router = createBrowserRouter([
           { path: 'schedules', element: <AdminSchedulesPage /> },
           { path: 'locations', element: <AdminLocationsPage /> },
           { path: 'user-memberships', element: <AdminUserMembershipsPage /> },
+          { path: 'scanner', element: <AdminScannerPage /> },
         ],
       },
     ],

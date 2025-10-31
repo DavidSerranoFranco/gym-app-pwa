@@ -12,6 +12,7 @@ import { LocationsModule } from './locations/locations.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { UserMembershipsModule } from './user-memberships/user-memberships.module';
 import { PaymentsModule } from './payments/payments.module';
+import { CheckInsModule } from './check-ins/check-ins.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { PaymentsModule } from './payments/payments.module';
     UserMembershipsModule,
     PaymentsModule,
     BookingsModule,
+    CheckInsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

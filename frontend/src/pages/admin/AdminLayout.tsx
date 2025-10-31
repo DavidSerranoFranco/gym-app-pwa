@@ -47,6 +47,17 @@ export default function AdminLayout() {
           >
               Suscripciones
           </NavLink>
+          <NavLink to="/admin/user-memberships" /* ... */ >
+          Suscripciones
+          </NavLink>
+        {/* AÑADIR ESTE ENLACE */}
+        <NavLink
+          to="/admin/scanner"
+          className="px-4 py-2 rounded-md text-gray-700 hover:bg-orange-100"
+          style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+          >
+          Escáner QR
+      </NavLink>
         </nav>
         <div className="mt-auto">
           <Link to="/" className="block text-sm text-gray-600 hover:text-orange-500 mb-4">Volver al Inicio</Link>

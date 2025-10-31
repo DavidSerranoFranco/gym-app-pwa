@@ -3,6 +3,7 @@ import axios, { AxiosError } from 'axios';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Modal from '../components/Modal'; // Para el modal de cancelación
+import { QRCodeSVG } from 'qrcode.react'; // Importamos el generador de QR
 
 // --- Interfaces ---
 interface MembershipPlan {
@@ -138,8 +139,23 @@ export default function ClientDashboardPage() {
                 Reservar una Clase Nueva
               </Link>
             </div>
-            
-            {/* Aquí irá el futuro QR */}
+
+            {/* --- SECCIÓN NUEVA DEL CÓDIGO QR --- */}
+            <div className="bg-white p-6 rounded-lg shadow-md text-center">
+              <h2 className="text-2xl font-bold text-gray-800 mb-4">Mi Pase de Acceso</h2>
+              {user ? (
+                <div className="flex flex-col items-center">
+                  <QRCodeSVG 
+                    value={user.id} // El QR contiene el ID del usuario
+                    size={256} // Tamaño del QR
+                    className="mb-4"
+                  />
+                  <p className="text-gray-600">Muestra este código al staff para registrar tu entrada o salida.</p>
+                </div>
+              ) : (
+                <p>Cargando tu pase...</p>
+              )}
+            </div>
           </div>
 
           {/* Columna Lateral: Mis Membresías */}
