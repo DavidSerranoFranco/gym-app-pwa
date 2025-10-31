@@ -1,22 +1,30 @@
-// backend/src/auth/schemas/user.schema.ts
-
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 
+// Define los roles que pueden existir en la aplicación
+export enum UserRole {
+  ADMIN = 'ADMIN',
+  CLIENT = 'CLIENT',
+}
+
 export type UserDocument = HydratedDocument<User>;
 
-@Schema({ timestamps: true }) // timestamps añade createdAt y updatedAt automáticamente
+@Schema({ timestamps: true })
 export class User {
+  toObject(): { [x: string]: any; password: any; } {
+    throw new Error('Method not implemented.');
+  }
   @Prop({ required: true })
   name: string;
 
-  @Prop({ required: true, unique: true }) // El email debe ser único
+  @Prop({ required: true, unique: true })
   email: string;
 
   @Prop({ required: true })
   password: string;
 
-  // Aquí podrías añadir más campos en el futuro, como 'role', 'membership', etc.
+  @Prop({ type: String, required: true, enum: UserRole, default: UserRole.CLIENT })
+  role: UserRole;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

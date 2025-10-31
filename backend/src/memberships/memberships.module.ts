@@ -1,0 +1,16 @@
+// backend/src/memberships/memberships.module.ts
+
+import { Module } from '@nestjs/common';
+import { MembershipsService } from './memberships.service';
+import { MembershipsController } from './memberships.controller';
+import { MongooseModule } from '@nestjs/mongoose';
+import { Membership, MembershipSchema } from './schemas/membership.schema';
+
+@Module({
+  imports: [ // <-- Añade esta sección
+    MongooseModule.forFeature([{ name: Membership.name, schema: MembershipSchema }])
+  ],
+  controllers: [MembershipsController],
+  providers: [MembershipsService],
+})
+export class MembershipsModule {}
