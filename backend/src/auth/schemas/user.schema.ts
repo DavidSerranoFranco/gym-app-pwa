@@ -25,6 +25,15 @@ export class User {
 
   @Prop({ type: String, required: true, enum: UserRole, default: UserRole.CLIENT })
   role: UserRole;
+
+  @Prop({ default: null })
+  profilePictureUrl: string; // Guardará la URL de la foto
+
+  @Prop({ default: '' })
+  address: string;
+
+  @Prop({ default: '' })
+  phone: string;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);

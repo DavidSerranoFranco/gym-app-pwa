@@ -97,6 +97,9 @@ export default function ClientDashboardPage() {
         <Link to="/" className="text-xl font-bold text-orange-500">Gym App</Link>
         <div>
           <span className="mr-4">Hola, {user?.name}</span>
+          <Link to="/profile" className="mr-4 text-gray-600 hover:text-orange-500">
+            Mi Perfil
+          </Link>
           <button onClick={logout} className="text-red-500 hover:underline">Cerrar Sesión</button>
         </div>
       </nav>

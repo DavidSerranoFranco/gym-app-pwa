@@ -1,21 +1,20 @@
-// frontend/src/pages/admin/AdminLayout.tsx
-
-import { Outlet, NavLink } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { Outlet, NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function AdminLayout() {
   const { logout } = useAuth();
   const activeLinkStyle = {
-    backgroundColor: '#F97316', // Naranja
+    backgroundColor: '#F97316',
     color: 'white',
   };
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
       {/* Barra Lateral de Navegación */}
-      <aside className="w-64 bg-white shadow-md p-4">
+      <aside className="w-64 bg-white shadow-md p-4 flex flex-col">
         <h2 className="text-2xl font-bold text-orange-500 mb-6">Admin Panel</h2>
+        
+        {/* Enlaces de Navegación */}
         <nav className="flex flex-col space-y-2">
           <NavLink
             to="/admin/memberships"
@@ -25,40 +24,50 @@ export default function AdminLayout() {
             Membresías
           </NavLink>
           <NavLink
-            to="/admin/schedules" // Ruta para el futuro
+            to="/admin/schedules"
             className="px-4 py-2 rounded-md text-gray-700 hover:bg-orange-100"
             style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
           >
             Horarios y Cupos
           </NavLink>
           <NavLink
-          to="/admin/locations"
-          className="px-4 py-2 rounded-md text-gray-700 hover:bg-orange-100"
-          style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+            to="/admin/locations"
+            className="px-4 py-2 rounded-md text-gray-700 hover:bg-orange-100"
+            style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
           >
             Sucursales
           </NavLink>
-          <NavLink to="/admin/locations" /* ... */ >Sucursales</NavLink>
-          {/* AÑADE ESTE ENLACE */}
           <NavLink
-              to="/admin/user-memberships"
-              className="px-4 py-2 rounded-md text-gray-700 hover:bg-orange-100"
-              style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+            to="/admin/user-memberships"
+            className="px-4 py-2 rounded-md text-gray-700 hover:bg-orange-100"
+            style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
           >
-              Suscripciones
+            Suscripciones
           </NavLink>
-          <NavLink to="/admin/user-memberships" /* ... */ >
-          Suscripciones
-          </NavLink>
-        {/* AÑADIR ESTE ENLACE */}
-        <NavLink
-          to="/admin/scanner"
-          className="px-4 py-2 rounded-md text-gray-700 hover:bg-orange-100"
-          style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+          <NavLink
+            to="/admin/scanner"
+            className="px-4 py-2 rounded-md text-gray-700 hover:bg-orange-100"
+            style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
           >
-          Escáner QR
-      </NavLink>
+            Escáner QR
+          </NavLink>
+          <NavLink
+            to="/admin/check-ins"
+            className="px-4 py-2 rounded-md text-gray-700 hover:bg-orange-100"
+            style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+          >
+            Historial de Acceso
+          </NavLink>
+          <NavLink
+            to="/admin/users"
+            className="px-4 py-2 rounded-md text-gray-700 hover:bg-orange-100"
+            style={({ isActive }) => (isActive ? activeLinkStyle : undefined)}
+          >
+            Usuarios
+          </NavLink>
         </nav>
+
+        {/* Botones de Salida (al final) */}
         <div className="mt-auto">
           <Link to="/" className="block text-sm text-gray-600 hover:text-orange-500 mb-4">Volver al Inicio</Link>
           <button onClick={logout} className="w-full text-left px-4 py-2 rounded-md text-sm text-red-500 hover:bg-red-100">
@@ -68,7 +77,7 @@ export default function AdminLayout() {
       </aside>
 
       {/* Contenido Principal de la Página */}
-      <main className="flex-1 p-8">
+      <main className="flex-1 p-8 overflow-y-auto"> {/* Se añade overflow-y-auto por si el contenido es largo */}
         <Outlet /> {/* Aquí se renderizarán las páginas de admin */}
       </main>
     </div>

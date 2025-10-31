@@ -15,6 +15,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/node_modulescd.
+      - ./uploads:/app/uploads
 
   # Servicio del Frontend para Desarrollo
   frontend:
