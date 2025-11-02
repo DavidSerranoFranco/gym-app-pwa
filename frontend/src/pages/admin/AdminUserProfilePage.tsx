@@ -1,15 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, Gender } from '../../context/AuthContext'; // <-- 1. Importar Gender
 
-// --- Interfaces ---
+// --- 2. INTERFACES ACTUALIZADAS ---
 interface User {
   _id: string;
-  name: string;
   email: string;
   role: string;
   createdAt: string;
+  
+  // Campos actualizados
+  firstName: string;
+  paternalLastName: string;
+  maternalLastName: string;
+  gender: Gender | null;
+  state: string | null;
+  age: number | null;
+  
+  // Campos existentes
   profilePictureUrl: string | null;
   address: string;
   phone: string;
@@ -84,20 +93,23 @@ export default function AdminUserProfilePage() {
     if (!dateStr) return '---';
     return new Date(dateStr).toLocaleString('es-ES');
   };
+  // 3. Helper para mostrar datos
+  const show = (data: string | number | null | undefined) => data || 'No especificado';
 
   if (loading) return <p>Cargando perfil del usuario...</p>;
   if (!profile) return <p>No se encontró el perfil del usuario.</p>;
 
-  // URL de la imagen
+  // 4. URL de imagen y nombre ACTUALIZADOS
+  const welcomeName = `${profile.user.firstName} ${profile.user.paternalLastName}`;
   const profileImageUrl = profile.user.profilePictureUrl
     ? `http://localhost:5000${profile.user.profilePictureUrl}`
-    : `https://ui-avatars.com/api/?name=${profile.user.name}&background=F97316&color=fff`;
+    : `https://ui-avatars.com/api/?name=${welcomeName.replace(' ', '+')}&background=F97316&color=fff`;
 
   return (
     <div className="space-y-8">
       <Link to="/admin/users" className="text-orange-600 hover:underline">&larr; Volver a la lista de usuarios</Link>
       
-      {/* 1. Tarjeta de Información del Usuario (Versión corregida y única) */}
+      {/* --- 5. TARJETA DE PERFIL (ACTUALIZADA) --- */}
       <div className="p-6 bg-white rounded-lg shadow-md">
         <div className="flex flex-col md:flex-row items-center md:space-x-6">
           <img
@@ -106,10 +118,8 @@ export default function AdminUserProfilePage() {
             className="w-24 h-24 rounded-full object-cover mb-4 md:mb-0"
           />
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-3xl font-bold text-gray-800">{profile.user.name}</h1>
-            <p className="text-lg text-gray-600">{profile.user.email}</p>
-            <p className="text-gray-600">{profile.user.phone || 'Sin teléfono'}</p>
-            <p className="text-gray-600">{profile.user.address || 'Sin dirección'}</p>
+            <h1 className="text-3xl font-bold text-gray-800">{welcomeName}</h1>
+            <p className="text-lg text-gray-600">{show(profile.user.maternalLastName)}</p>
             <p className="text-sm text-gray-400">Miembro desde: {formatDate(profile.user.createdAt)}</p>
           </div>
           <div className="text-center bg-gray-50 p-4 rounded-lg mt-4 md:mt-0">
@@ -117,9 +127,37 @@ export default function AdminUserProfilePage() {
             <div className="text-sm font-semibold text-gray-500">Puntos</div>
           </div>
         </div>
+        
+        {/* --- 6. SECCIÓN DE DATOS PERSONALES (ACTUALIZADA) --- */}
+        <div className="mt-6 border-t pt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Email</h3>
+            <p className="text-lg text-gray-800">{profile.user.email}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Teléfono</h3>
+            <p className="text-lg text-gray-800">{show(profile.user.phone)}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Dirección</h3>
+            <p className="text-lg text-gray-800">{show(profile.user.address)}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Estado</h3>
+            <p className="text-lg text-gray-800">{show(profile.user.state)}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Edad</h3>
+            <p className="text-lg text-gray-800">{show(profile.user.age)}</p>
+          </div>
+          <div>
+            <h3 className="text-sm font-medium text-gray-500">Género</h3>
+            <p className="text-lg text-gray-800">{show(profile.user.gender)}</p>
+          </div>
+        </div>
       </div>
 
-      {/* 2. Historial de Membresías */}
+      {/* 2. Historial de Membresías (sin cambios) */}
       <div className="p-6 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Historial de Membresías</h2>
         <div className="overflow-x-auto">
@@ -146,7 +184,7 @@ export default function AdminUserProfilePage() {
         </div>
       </div>
 
-      {/* 3. Historial de Reservas */}
+      {/* 3. Historial de Reservas (sin cambios) */}
       <div className="p-6 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Historial de Reservas</h2>
         <div className="overflow-x-auto">
@@ -173,7 +211,7 @@ export default function AdminUserProfilePage() {
         </div>
       </div>
 
-      {/* 4. Historial de Acceso (Check-ins) */}
+      {/* 4. Historial de Acceso (Check-ins) (sin cambios) */}
       <div className="p-6 bg-white rounded-lg shadow-md">
         <h2 className="text-2xl font-bold text-gray-800 mb-4">Historial de Acceso</h2>
         <div className="overflow-x-auto">

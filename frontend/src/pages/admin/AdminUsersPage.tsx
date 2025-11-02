@@ -3,9 +3,12 @@ import axios from 'axios';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 
+// --- 1. INTERFAZ CORREGIDA ---
+// El backend ahora envía 'firstName' y 'paternalLastName'
 interface User {
   _id: string;
-  name: string;
+  firstName: string; // 'name' se ha renombrado
+  paternalLastName: string; // Se añade el apellido
   email: string;
 }
 
@@ -19,7 +22,7 @@ export default function AdminUsersPage() {
       if (!token) return;
       try {
         setLoading(true);
-        // Usamos el endpoint que ya habíamos creado
+        // El endpoint /auth/users devuelve la lista de usuarios
         const response = await axios.get('http://localhost:5000/auth/users', {
           headers: { Authorization: `Bearer ${token}` },
         });
@@ -54,7 +57,13 @@ export default function AdminUsersPage() {
             <tbody>
               {users.map((user) => (
                 <tr key={user._id} className="border-b hover:bg-gray-50">
-                  <td className="py-3 px-4 font-semibold">{user.name}</td>
+                  
+                  {/* --- 2. CÓDIGO CORREGIDO --- */}
+                  {/* Se muestra el nombre y el primer apellido */}
+                  <td className="py-3 px-4 font-semibold">
+                    {user.firstName} {user.paternalLastName}
+                  </td>
+                  
                   <td className="py-3 px-4">{user.email}</td>
                   <td className="py-3 px-4">
                     <Link

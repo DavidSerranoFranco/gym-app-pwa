@@ -95,7 +95,7 @@ export default function ClientDashboardPage() {
       <nav className="bg-white shadow p-4 flex justify-between items-center">
         <Link to="/" className="text-xl font-bold text-orange-500">Gym App</Link>
         <div>
-          <span className="mr-4">Hola, {user?.name}</span>
+          <span className="mr-4">Hola, {user?.firstName}</span>
           <Link to="/profile" className="mr-4 text-gray-600 hover:text-orange-500">
             Mi Perfil
           </Link>

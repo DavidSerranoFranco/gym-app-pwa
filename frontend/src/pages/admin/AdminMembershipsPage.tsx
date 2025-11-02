@@ -1,31 +1,38 @@
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/Modal';
-import MembershipForm from '../../components/admin/MembershipForm';
+import MembershipForm from '../../components/admin/MembershipForm'; // <-- Usar el nuevo formulario
 
-// Interface actualizada para incluir classCount
 interface Membership {
   _id: string;
   name: string;
   price: number;
-  durationInDays: number;
-  classCount: number; // Campo añadido
-  isActive: boolean;
+  description: string;
+  durationDays: number;
+  classesPerWeek: number;
+  totalClasses: number;
+  points: number;
 }
 
 export default function AdminMembershipsPage() {
+  const { token } = useAuth();
   const [memberships, setMemberships] = useState<Membership[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-  const [editingMembership, setEditingMembership] = useState<Membership | null>(null);
-  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [deletingMembershipId, setDeletingMembershipId] = useState<string | null>(null);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedMembership, setSelectedMembership] = useState<Membership | null>(null);
 
   const fetchMemberships = async () => {
+    setLoading(true);
     try {
       const response = await axios.get('http://localhost:5000/memberships');
       setMemberships(response.data);
-    } catch (error) {
-      console.error('Error al obtener las membresías:', error);
+    } catch (err) {
+      setError('No se pudieron cargar las membresías.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -33,85 +40,97 @@ export default function AdminMembershipsPage() {
     fetchMemberships();
   }, []);
 
-  const handleFormSuccess = () => {
+  const openCreateModal = () => {
+    setSelectedMembership(null);
+    setIsFormModalOpen(true);
+  };
+
+  const openEditModal = (membership: Membership) => {
+    setSelectedMembership(membership);
+    setIsFormModalOpen(true);
+  };
+
+  const openDeleteModal = (membership: Membership) => {
+    setSelectedMembership(membership);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeModals = () => {
     setIsFormModalOpen(false);
-    setEditingMembership(null);
+    setIsDeleteModalOpen(false);
+    setSelectedMembership(null);
+  };
+
+  const handleFormSuccess = () => {
     fetchMemberships();
+    closeModals();
   };
 
-  const handleEditClick = (membership: Membership) => {
-    setEditingMembership(membership);
-    setIsFormModalOpen(true);
-  };
-
-  const handleCreateClick = () => {
-    setEditingMembership(null);
-    setIsFormModalOpen(true);
-  };
-
-  const handleDeleteClick = (id: string) => {
-    setDeletingMembershipId(id);
-    setIsConfirmModalOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (!deletingMembershipId) return;
+  const handleDelete = async () => {
+    if (!selectedMembership || !token) return;
     try {
-      await axios.delete(`http://localhost:5000/memberships/${deletingMembershipId}`);
-      alert('Membresía eliminada con éxito');
+      await axios.delete(`http://localhost:5000/memberships/${selectedMembership._id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       fetchMemberships();
-    } catch (error) {
-      console.error('Error al eliminar la membresía:', error);
+    } catch (err) {
+      alert('Error al eliminar la membresía.');
     } finally {
-      setIsConfirmModalOpen(false);
-      setDeletingMembershipId(null);
+      closeModals();
     }
   };
+
+  if (loading) return <p>Cargando membresías...</p>;
+  if (error) return <p className="text-red-500">{error}</p>;
 
   return (
     <div className="p-4 bg-white rounded-lg shadow-md">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold text-gray-800">Gestionar Membresías</h1>
+        <h1 className="text-3xl font-bold text-gray-800">Gestión de Membresías</h1>
         <button
-          onClick={handleCreateClick}
-          className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-md transition-colors"
+          onClick={openCreateModal}
+          className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-md"
         >
-          + Crear Nueva
+          + Crear Membresía
         </button>
       </div>
 
+      {/* --- TABLA ACTUALIZADA CON TODOS LOS CAMPOS --- */}
       <div className="overflow-x-auto">
         <table className="min-w-full bg-white">
           <thead className="bg-gray-100">
             <tr>
-              <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600">Nombre</th>
-              <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600">Precio</th>
-              <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600">Duración (Días)</th>
-              <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600">Clases Incluidas</th>
-              <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600">Estado</th>
-              <th className="py-3 px-4 text-left text-sm font-semibold text-gray-600">Acciones</th>
+              <th className="py-3 px-4 text-left">Nombre</th>
+              <th className="py-3 px-4 text-left">Precio</th>
+              <th className="py-3 px-4 text-left">Duración (Días)</th>
+              <th className="py-3 px-4 text-left">Clases (Semana)</th>
+              <th className="py-3 px-4 text-left">Clases (Total)</th>
+              <th className="py-3 px-4 text-left">Puntos</th>
+              <th className="py-3 px-4 text-left">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {memberships.map((membership) => (
-              <tr key={membership._id} className="border-b hover:bg-gray-50">
-                <td className="py-3 px-4">{membership.name}</td>
-                <td className="py-3 px-4">${membership.price.toFixed(2)}</td>
-                <td className="py-3 px-4">{membership.durationInDays}</td>
-                <td className="py-3 px-4">{membership.classCount}</td>
-                <td className="py-3 px-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                      membership.isActive
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}
+            {memberships.map((mem) => (
+              <tr key={mem._id} className="border-b hover:bg-gray-50">
+                <td className="py-3 px-4 font-semibold">{mem.name}</td>
+                <td className="py-3 px-4">${mem.price.toFixed(2)}</td>
+                <td className="py-3 px-4">{mem.durationDays}</td>
+                <td className="py-3 px-4">{mem.classesPerWeek}</td>
+                <td className="py-3 px-4">{mem.totalClasses}</td>
+                <td className="py-3 px-4">{mem.points}</td>
+                <td className="py-3 px-4 space-x-2">
+                  <button
+                    onClick={() => openEditModal(mem)}
+                    className="text-blue-600 hover:text-blue-800"
                   >
-                    {membership.isActive ? 'Activo' : 'Inactivo'}
-                  </span>
-                </td>
-                <td className="py-3 px-4">
-                  <button onClick={() => handleEditClick(membership)} className="text-yellow-500 hover:text-yellow-700 mr-4">Editar</button>
-                  <button onClick={() => handleDeleteClick(membership._id)} className="text-red-500 hover:text-red-700">Borrar</button>
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => openDeleteModal(mem)}
+                    className="text-red-600 hover:text-red-800"
+                  >
+                    Borrar
+                  </button>
                 </td>
               </tr>
             ))}
@@ -119,28 +138,31 @@ export default function AdminMembershipsPage() {
         </table>
       </div>
 
-      <Modal
-        isOpen={isFormModalOpen}
-        onClose={() => setIsFormModalOpen(false)}
-        title={editingMembership ? 'Editar Membresía' : 'Crear Nueva Membresía'}
+      {/* --- MODAL DE CREAR/EDITAR (USA EL NUEVO FORM) --- */}
+      <Modal 
+        isOpen={isFormModalOpen} 
+        onClose={closeModals} 
+        title={selectedMembership ? "Editar Membresía" : "Crear Nueva Membresía"}
       >
         <MembershipForm
-          initialData={editingMembership}
           onSuccess={handleFormSuccess}
-          onClose={() => setIsFormModalOpen(false)}
+          onClose={closeModals}
+          existingMembership={selectedMembership}
         />
       </Modal>
 
-      <Modal
-        isOpen={isConfirmModalOpen}
-        onClose={() => setIsConfirmModalOpen(false)}
-        title="Confirmar Eliminación"
-      >
+      {/* --- MODAL DE CONFIRMACIÓN DE BORRADO --- */}
+      <Modal isOpen={isDeleteModalOpen} onClose={closeModals} title="Confirmar Eliminación">
         <div>
-          <p className="mb-6">¿Estás seguro de que quieres eliminar esta membresía?</p>
-          <div className="flex justify-end space-x-4">
-            <button type="button" onClick={() => setIsConfirmModalOpen(false)} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
-            <button type="button" onClick={confirmDelete} className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">Sí, Eliminar</button>
+          <p>¿Estás seguro de que quieres eliminar la membresía <strong>"{selectedMembership?.name}"</strong>?</p>
+          <p className="text-sm text-red-600 mt-2">Esta acción no se puede deshacer.</p>
+          <div className="flex justify-end space-x-4 mt-6">
+            <button onClick={closeModals} className="bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300">
+              Cancelar
+            </button>
+            <button onClick={handleDelete} className="bg-red-600 text-white py-2 px-4 rounded-md hover:bg-red-700">
+              Eliminar
+            </button>
           </div>
         </div>
       </Modal>

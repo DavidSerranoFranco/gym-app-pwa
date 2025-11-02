@@ -1,80 +1,139 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import * as paypal from '@paypal/checkout-server-sdk';
+import { Injectable, InternalServerErrorException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Membership } from '../memberships/schemas/membership.schema';
-import { UserMembershipsService } from '../user-memberships/user-memberships.service';
+import { User } from '../auth/schemas/user.schema';
+import { UserMembership } from '../user-memberships/schemas/user-membership.schema';
+import { PaypalService } from './paypal.service';
+import * as checkoutNodeJssdk from '@paypal/checkout-server-sdk';
+import { ConfigService } from '@nestjs/config';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class PaymentsService {
-  private payPalClient: any;
-
   constructor(
-    private configService: ConfigService,
     @InjectModel(Membership.name) private membershipModel: Model<Membership>,
-    private userMembershipsService: UserMembershipsService,
-  ) {
-    const environment = new paypal.core.SandboxEnvironment(
-      this.configService.get('PAYPAL_CLIENT_ID'),
-      this.configService.get('PAYPAL_CLIENT_SECRET'),
-    );
-    this.payPalClient = new paypal.core.PayPalHttpClient(environment);
-  }
+    @InjectModel(User.name) private userModel: Model<User>,
+    @InjectModel(UserMembership.name) private userMembershipModel: Model<UserMembership>,
+    private paypalService: PaypalService,
+    private configService: ConfigService,
+    private mailService: MailService,
+  ) {}
 
-  async createOrder(membershipId: string) {
+  /**
+   * 1. Crear Orden en PayPal
+   */
+  async createOrder(membershipId: string, userId: string) {
     const membership = await this.membershipModel.findById(membershipId);
-    if (!membership) throw new NotFoundException('Membresía no encontrada');
+    if (!membership) {
+      throw new NotFoundException('Membresía no encontrada');
+    }
 
-    const request = new paypal.orders.OrdersCreateRequest();
-    request.prefer("return=representation");
+    const request = new checkoutNodeJssdk.orders.OrdersCreateRequest();
     request.requestBody({
       intent: 'CAPTURE',
       purchase_units: [{
         amount: {
-          currency_code: 'USD',
+          currency_code: this.configService.get<string>('PAYPAL_CURRENCY', 'MXN'),
           value: membership.price.toString(),
         },
         description: `Membresía: ${membership.name}`,
-        // --- CAMBIO CLAVE: Adjuntamos el ID de la membresía a la orden ---
-        custom_id: membershipId, 
+        reference_id: `${membershipId}_${userId}`, // Guardamos IDs para la captura
       }],
     });
 
     try {
-      const order = await this.payPalClient.execute(request);
+      const order = await this.paypalService.client().execute(request);
       return { orderID: order.result.id };
-    } catch (err) {
-      throw new InternalServerErrorException('Error al crear la orden de PayPal');
+    } catch (error) {
+      console.error("Error al crear la orden de PayPal:", error);
+      throw new InternalServerErrorException('No se pudo crear la orden de PayPal');
     }
   }
 
-  async captureOrder(orderID: string, userId: string) {
-    const request = new paypal.orders.OrdersCaptureRequest(orderID);
+  /**
+   * 2. Capturar Orden en PayPal
+   */
+  async captureOrder(orderID: string, membershipId: string, userId: string) {
+    const request = new checkoutNodeJssdk.orders.OrdersCaptureRequest(orderID);
     request.requestBody({});
 
     try {
-      const capture = await this.payPalClient.execute(request);
-      const status = capture.result.status;
+      const capture = await this.paypalService.client().execute(request);
 
-      if (status === 'COMPLETED') {
+      if (capture.result.status === 'COMPLETED') {
+        const membership = await this.membershipModel.findById(membershipId);
+        const user = await this.userModel.findById(userId);
+        
+        if (!membership || !user) {
+          throw new NotFoundException('Usuario o Membresía no encontrados');
+        }
+        
         const purchaseUnit = capture.result.purchase_units[0];
-        // --- CAMBIO CLAVE: Leemos el ID de la membresía directamente ---
-        const membershipId = purchaseUnit.custom_id; 
+        const capturedPayment = purchaseUnit.payments.captures[0];
+        const amount = capturedPayment.amount.value;
+        const currency = capturedPayment.amount.currency_code;
 
-        if (!membershipId) throw new InternalServerErrorException('No se encontró el ID de la membresía en la orden de PayPal');
+        // --- ZONA DE CORRECIÓN (El error NaN / Invalid Date) ---
+        
+        // 1. Leer los valores directamente del 'membership'
+        const duration = membership.durationDays;
+        const totalClasses = membership.totalClasses; // <-- Leemos el total directo
 
-        // Crea la suscripción para el usuario usando el ID recuperado
-        await this.userMembershipsService.create({
+        // 2. Validar que la membresía no esté corrupta
+        if (typeof duration !== 'number' || typeof totalClasses !== 'number') {
+          console.error(`Error de Base de Datos: La membresía "${membership.name}" no tiene 'durationDays' o 'totalClasses' definidos.`);
+          throw new InternalServerErrorException('Error en la configuración de la membresía.');
+        }
+
+        // 3. Calcular la fecha de expiración (Ahora SÍ funciona)
+        const expirationDate = new Date();
+        expirationDate.setDate(expirationDate.getDate() + duration);
+
+        // 4. Activar la membresía (Ahora SÍ funciona)
+        const newUserMembership = new this.userMembershipModel({
           user: userId,
           membership: membershipId,
+          startDate: new Date(),
+          endDate: expirationDate, // <-- Ya no es "Invalid Date"
+          classesRemaining: totalClasses, // <-- Ya no es "NaN"
+          status: 'ACTIVE',
+          paymentDetails: {
+            paypalOrderId: orderID,
+            amount,
+            currency,
+            status: 'COMPLETED',
+          },
         });
+        
+        // --- FIN DE LA ZONA DE CORRECIÓN ---
 
-        return { status: 'success', message: 'Pago completado y membresía activada.' };
+        await newUserMembership.save();
+        
+        user.points = (user.points || 0) + (membership.points || 0);
+        await user.save();
+        
+        try {
+          await this.mailService.sendPurchaseReceipt(user, membership, newUserMembership);
+        } catch (emailError) {
+          console.error(`[PaymentsService] Pago ${orderID} exitoso, pero falló el envío de correo a ${user.email}:`, emailError);
+        }
+        
+        return {
+          message: 'Pago completado y membresía activada',
+          membership: newUserMembership,
+        };
+
+      } else {
+        throw new BadRequestException('El pago no fue completado por PayPal.');
       }
-    } catch (err) {
-      console.error(err); // Es bueno loguear el error real en el servidor
-      throw new InternalServerErrorException('Error al capturar el pago de PayPal');
+    } catch (error) {
+      // Si el error es de validación (como el NaN), lo veremos aquí
+      console.error("Error al capturar la orden de PayPal:", error); 
+      if (error.statusCode === 422) {
+         throw new BadRequestException('Esta orden de pago ya fue procesada.');
+      }
+      throw new InternalServerErrorException('No se pudo capturar el pago.');
     }
   }
 }

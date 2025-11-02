@@ -8,6 +8,9 @@ import { UserMembershipsModule } from '../user-memberships/user-memberships.modu
 import { UserMembershipsService } from '../user-memberships/user-memberships.service';
 import { UserMembership, UserMembershipSchema } from '../user-memberships/schemas/user-membership.schema';
 import { AuthModule } from '../auth/auth.module';
+import { User, UserSchema } from '../auth/schemas/user.schema';
+import { PaypalService } from './paypal.service';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -17,9 +20,11 @@ import { AuthModule } from '../auth/auth.module';
     MongooseModule.forFeature([
       { name: Membership.name, schema: MembershipSchema },
       { name: UserMembership.name, schema: UserMembershipSchema },
+      { name: User.name, schema: UserSchema },
     ]),
+    MailModule,
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService, UserMembershipsService], // Añade UserMembershipsService
+  providers: [PaymentsService, UserMembershipsService, PaypalService],
 })
 export class PaymentsModule {}

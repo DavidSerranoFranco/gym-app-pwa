@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsNumber, IsPositive } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, Min, IsOptional } from 'class-validator';
 
 export class CreateMembershipDto {
   @IsString()
@@ -6,15 +6,26 @@ export class CreateMembershipDto {
   name: string;
 
   @IsNumber()
-  @IsPositive()
+  @Min(0)
   price: number;
+  
+  @IsString()
+  @IsOptional()
+  description: string;
 
   @IsNumber()
-  @IsPositive()
-  durationInDays: number;
+  @Min(1)
+  durationDays: number;
 
-  // --- NUEVO CAMPO ---
   @IsNumber()
-  @IsPositive()
-  classCount: number;
+  @Min(0)
+  classesPerWeek: number;
+
+  @IsNumber()
+  @Min(0)
+  totalClasses: number;
+  
+  @IsNumber()
+  @Min(0)
+  points: number;
 }

@@ -5,12 +5,14 @@ import { Booking, BookingStatus } from '../bookings/schemas/booking.schema';
 import { Schedule } from '../schedules/schemas/schedule.schema';
 import { CreateCheckInDto } from './dto/create-check-in.dto';
 import { CheckIn, CheckInDocument, CheckInStatus } from './schemas/check-in.schema';
+import { User } from '../auth/schemas/user.schema';
 
 @Injectable()
 export class CheckInsService {
   constructor(
     @InjectModel(CheckIn.name) private checkInModel: Model<CheckInDocument>,
     @InjectModel(Booking.name) private bookingModel: Model<Booking>,
+    @InjectModel(User.name) private userModel: Model<User>,
   ) {}
 
   /**
@@ -20,23 +22,21 @@ export class CheckInsService {
   async handleScan(createCheckInDto: CreateCheckInDto) {
     const { userId } = createCheckInDto;
 
-    // 1. Buscamos si el usuario ya tiene un check-in activo (está adentro)
     const activeCheckIn = await this.checkInModel.findOne({
       user: userId,
       status: CheckInStatus.CHECKED_IN,
     });
 
     if (activeCheckIn) {
-      // --- Lógica de CHECK-OUT (Salida) ---
       return this.performCheckOut(activeCheckIn);
     } else {
-      // --- Lógica de CHECK-IN (Entrada) ---
       return this.performCheckIn(userId);
     }
   }
 
   /**
    * Valida y registra una nueva entrada (CHECK-IN)
+   * ESTA FUNCIÓN HA SIDO CORREGIDA
    */
   private async performCheckIn(userId: string) {
     // 1. Validar que el usuario tenga una reserva confirmada para hoy
@@ -48,7 +48,7 @@ export class CheckInsService {
       throw new BadRequestException('El usuario no tiene una reserva activa para hoy o la clase ya terminó.');
     }
 
-    // 2. Creamos el nuevo registro de check-in
+    // 2. Creamos el nuevo registro de check-in (sin guardarlo aún)
     const newCheckIn = new this.checkInModel({
       user: userId,
       booking: validBooking._id,
@@ -57,9 +57,21 @@ export class CheckInsService {
       status: CheckInStatus.CHECKED_IN,
     });
 
-    await newCheckIn.save();
+    // 3. Preparamos la lógica de puntos
+    const pointsForAttendance = 10;
+    const updateUserPoints = this.userModel.findByIdAndUpdate(userId, {
+      $inc: { points: pointsForAttendance },
+    });
+    
+    // 4. Guardamos ambas operaciones (el check-in y los puntos) en paralelo
+    await Promise.all([
+      newCheckIn.save(),
+      updateUserPoints
+    ]);
+
+    // 5. Devolvemos el mensaje de éxito (solo un return)
     return {
-      message: 'Entrada registrada con éxito.',
+      message: `Entrada registrada. ¡Has ganado ${pointsForAttendance} puntos!`,
       type: 'CHECK_IN',
       checkIn: newCheckIn,
     };
@@ -79,19 +91,16 @@ export class CheckInsService {
       })
       .populate({
         path: 'schedule',
-        populate: { path: 'location' }, // Populamos la ubicación dentro del horario
+        populate: { path: 'location' },
       })
       .exec();
 
     if (todayBookings.length === 0) return null;
 
-    // Buscamos una reserva que esté en la ventana de tiempo correcta
     const validBooking = todayBookings.find(booking => {
-      // Hacemos 'casting' porque 'schedule' está poblado
       const schedule = booking.schedule as unknown as Schedule;
       if (!schedule) return false;
 
-      // Convertimos las horas "HH:MM" a objetos Date de hoy
       const [startHour, startMin] = schedule.startTime.split(':').map(Number);
       const [endHour, endMin] = schedule.endTime.split(':').map(Number);
       
@@ -101,10 +110,8 @@ export class CheckInsService {
       const classEndTime = new Date(todayString);
       classEndTime.setHours(endHour, endMin, 0, 0);
 
-      // Permitimos check-in 30 minutos antes de que empiece la clase
       const checkInWindowStart = new Date(classStartTime.getTime() - 30 * 60000);
 
-      // El usuario puede hacer check-in si está en la ventana y la clase no ha terminado
       return now >= checkInWindowStart && now <= classEndTime;
     });
 
@@ -132,16 +139,16 @@ export class CheckInsService {
   async findAll() {
     return this.checkInModel
       .find()
-      .populate('user', 'name email') // Solo trae nombre y email del usuario
-      .populate('location', 'name') // Solo trae el nombre de la sucursal
+      .populate('user', 'name email')
+      .populate('location', 'name')
       .populate({
         path: 'booking',
         populate: {
           path: 'schedule',
-          select: 'startTime endTime' // Solo trae las horas del horario
+          select: 'startTime endTime'
         }
       })
-      .sort({ checkInTime: -1 }) // Los más recientes primero
+      .sort({ checkInTime: -1 })
       .exec();
   }
 }

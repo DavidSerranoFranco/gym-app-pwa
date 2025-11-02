@@ -1,11 +1,11 @@
-import { IsMongoId, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 
 export class CreateUserMembershipDto {
-  @IsMongoId()
-  @IsNotEmpty()
-  user: string; // Recibiremos el ID del usuario
+  @IsString()
+  @IsNotEmpty({ message: 'El ID del usuario es requerido.' })
+  userId: string;
 
-  @IsMongoId()
-  @IsNotEmpty()
-  membership: string; // Recibiremos el ID de la membresía
+  @IsString()
+  @IsNotEmpty({ message: 'El ID de la membresía es requerido.' })
+  membershipId: string;
 }

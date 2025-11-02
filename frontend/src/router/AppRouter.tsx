@@ -7,6 +7,10 @@ import App from '../App';
 import LandingPage from '../pages/LandingPage';
 import LoginPage from '../pages/LoginPage';
 import RegisterPage from '../pages/RegisterPage';
+import AuthCallbackPage from '../pages/AuthCallbackPage';
+import ForgotPasswordPage from '../pages/ForgotPasswordPage';
+import ResetPasswordPage from '../pages/ResetPasswordPage';
+import EmailVerificationPage from '../pages/EmailVerificationPage';
 import PublicMembershipsPage from '../pages/PublicMembershipsPage';
 import PublicSchedulesPage from '../pages/PublicSchedulesPage';
 import RootLayout from './RootLayout';
@@ -14,6 +18,8 @@ import RootLayout from './RootLayout';
 // Vistas de Cliente
 import ClientDashboardPage from '../pages/ClientDashboardPage';
 import ClientProfilePage from '../pages/ClientProfilePage';
+import ClientMembershipsPage from '../pages/ClientMembershipsPage';
+import ClientMyMembershipsPage from '../pages/ClientMyMembershipsPage';
 
 // Vistas de Administrador
 import AdminLayout from '../pages/admin/AdminLayout';
@@ -43,8 +49,14 @@ export const router = createBrowserRouter([
       // Rutas que usan su propio layout
       { path: 'login', element: <LoginPage /> },
       { path: 'register', element: <RegisterPage /> },
+      { path: 'auth/callback', element: <AuthCallbackPage /> },
+      { path: 'forgot-password', element: <ForgotPasswordPage /> },
+      { path: 'reset-password', element: <ResetPasswordPage /> },
+      { path: 'auth/verify-email', element: <EmailVerificationPage /> },
       { path: 'dashboard', element: <ClientDashboardPage /> },
       { path: 'profile', element: <ClientProfilePage /> },
+      { path: 'dashboard/memberships', element: <ClientMembershipsPage /> },
+      { path: 'dashboard/my-memberships', element: <ClientMyMembershipsPage /> },
       // Grupo de rutas de administrador
       {
         path: 'admin',

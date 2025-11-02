@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { HydratedDocument } from 'mongoose';
+import { Document } from 'mongoose';
 
-export type MembershipDocument = HydratedDocument<Membership>;
+export type MembershipDocument = Membership & Document;
 
 @Schema({ timestamps: true })
 export class Membership {
@@ -10,16 +10,22 @@ export class Membership {
 
   @Prop({ required: true })
   price: number;
+  
+  @Prop({ default: '' })
+  description: string;
 
+  // --- NUEVA ESTRUCTURA PERFECTA ---
   @Prop({ required: true })
-  durationInDays: number;
+  durationDays: number; // Ej. 30 (para 1 mes)
 
-  // --- NUEVO CAMPO ---
-  @Prop({ required: true, min: 1 })
-  classCount: number; // Número de clases que incluye el plan
+  @Prop({ required: true, default: 0 })
+  classesPerWeek: number; // Ej. 3 (clases por semana)
 
-  @Prop({ default: true })
-  isActive: boolean;
+  @Prop({ required: true, default: 0 })
+  totalClasses: number; // Ej. 12 (total de clases en el plan)
+
+  @Prop({ required: true, default: 0 })
+  points: number; // Puntos que otorga esta membresía
 }
 
 export const MembershipSchema = SchemaFactory.createForClass(Membership);

@@ -2,11 +2,20 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import Modal from '../../components/Modal';
 import UserMembershipForm from '../../components/admin/UserMembershipForm';
+import { useAuth } from '../../context/AuthContext'; // <-- 1. Importar useAuth
 
+// --- 2. Interfaz Corregida ---
 interface UserMembership {
   _id: string;
-  user: { name: string };
-  membership: { name: string };
+  user: { 
+    _id: string; // Es bueno tener el ID por si se necesita
+    firstName: string; 
+    paternalLastName: string; 
+  };
+  membership: { 
+    _id: string;
+    name: string; 
+  };
   endDate: string;
   classesRemaining: number;
   status: string;
@@ -15,14 +24,18 @@ interface UserMembership {
 export default function AdminUserMembershipsPage() {
   const [userMemberships, setUserMemberships] = useState<UserMembership[]>([]);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
-
-  // Estados para el modal de confirmación
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [deletingSubId, setDeletingSubId] = useState<string | null>(null);
+  
+  const { token } = useAuth(); // <-- 3. Obtener el token
 
   const fetchUserMemberships = async () => {
+    if (!token) return; // No hacer nada si no hay token
     try {
-      const response = await axios.get('http://localhost:5000/user-memberships');
+      // 4. Añadir token a la petición
+      const response = await axios.get('http://localhost:5000/user-memberships', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       setUserMemberships(response.data);
     } catch (error) {
       console.error('Error al obtener las suscripciones:', error);
@@ -31,24 +44,25 @@ export default function AdminUserMembershipsPage() {
 
   useEffect(() => {
     fetchUserMemberships();
-  }, []);
+  }, [token]); // 5. 'token' es una dependencia
 
   const handleSuccess = () => {
     setIsFormModalOpen(false);
     fetchUserMemberships();
   };
 
-  // Abre el modal de confirmación
   const handleDeleteClick = (id: string) => {
     setDeletingSubId(id);
     setIsConfirmModalOpen(true);
   };
 
-  // Confirma y ejecuta la eliminación
   const confirmDelete = async () => {
-    if (!deletingSubId) return;
+    if (!deletingSubId || !token) return; // 6. Verificar token aquí también
     try {
-      await axios.delete(`http://localhost:5000/user-memberships/${deletingSubId}`);
+      // 7. Añadir token a la petición
+      await axios.delete(`http://localhost:5000/user-memberships/${deletingSubId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       alert('Suscripción revocada con éxito');
       fetchUserMemberships();
     } catch (error) {
@@ -83,10 +97,15 @@ export default function AdminUserMembershipsPage() {
         <tbody>
           {userMemberships.map((sub) => (
             <tr key={sub._id} className="border-b hover:bg-gray-50">
-              <td className="py-3 px-4">{sub.user?.name || 'Usuario no encontrado'}</td>
+              
+              {/* --- 8. Columna de Usuario Corregida --- */}
+              <td className="py-3 px-4">
+                {sub.user ? `${sub.user.firstName} ${sub.user.paternalLastName}` : 'Usuario no encontrado'}
+              </td>
+              
               <td className="py-3 px-4">{sub.membership?.name || 'Plan no encontrado'}</td>
               <td className="py-3 px-4">{sub.classesRemaining}</td>
-              <td className="py-3 px-4">{new Date(sub.endDate).toLocaleDateString()}</td>
+              <td className="py-3 px-4">{new Date(sub.endDate).toLocaleDateString('es-ES')}</td>
               <td className="py-3 px-4">{sub.status}</td>
               <td className="py-3 px-4">
                 <button onClick={() => handleDeleteClick(sub._id)} className="text-red-500 hover:text-red-700">Revocar</button>

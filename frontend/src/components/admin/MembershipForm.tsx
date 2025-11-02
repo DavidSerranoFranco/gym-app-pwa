@@ -1,79 +1,198 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import axios from 'axios';
+import { useAuth } from '../../context/AuthContext';
 import Input from '../Input';
 
-interface MembershipData {
-  _id?: string;
+interface Membership {
+  _id: string;
   name: string;
   price: number;
-  durationInDays: number;
-  classCount: number; // <-- Añadido
+  description: string;
+  durationDays: number;
+  classesPerWeek: number;
+  totalClasses: number;
+  points: number;
 }
 
 interface MembershipFormProps {
-  initialData?: Partial<MembershipData> | null;
   onSuccess: () => void;
   onClose: () => void;
+  existingMembership?: Membership | null;
 }
 
-export default function MembershipForm({ initialData, onSuccess, onClose }: MembershipFormProps) {
+export default function MembershipForm({ onSuccess, onClose, existingMembership }: MembershipFormProps) {
+  const { token } = useAuth();
   const [formData, setFormData] = useState({
     name: '',
     price: 0,
-    durationInDays: 30,
-    classCount: 8, // <-- Añadido
+    description: '',
+    durationDays: 30,
+    classesPerWeek: 0,
+    totalClasses: 0,
+    points: 0,
   });
-
-  const isEditMode = !!initialData;
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isEditMode && initialData) {
+    if (existingMembership) {
       setFormData({
-        name: initialData.name || '',
-        price: initialData.price || 0,
-        durationInDays: initialData.durationInDays || 30,
-        classCount: initialData.classCount || 8, // <-- Añadido
+        name: existingMembership.name,
+        price: existingMembership.price,
+        description: existingMembership.description || '',
+        durationDays: existingMembership.durationDays,
+        classesPerWeek: existingMembership.classesPerWeek,
+        totalClasses: existingMembership.totalClasses,
+        points: existingMembership.points,
+      });
+    } else {
+      // Resetear a valores por defecto si es modo "Crear"
+      setFormData({
+        name: '',
+        price: 0,
+        description: '',
+        durationDays: 30,
+        classesPerWeek: 0,
+        totalClasses: 0,
+        points: 0,
       });
     }
-  }, [initialData, isEditMode]);
+  }, [existingMembership]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
     setFormData({
       ...formData,
-      // Convertimos a número los campos que lo necesitan
-      [name]: ['price', 'durationInDays', 'classCount'].includes(name) ? Number(value) : value,
+      [name]: type === 'number' ? parseFloat(value) || 0 : value,
     });
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!token) {
+      setError("No estás autenticado.");
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+
     try {
-      if (isEditMode) {
-        await axios.patch(`http://localhost:5000/memberships/${initialData?._id}`, formData);
-        alert('Membresía actualizada con éxito');
+      if (existingMembership) {
+        await axios.patch(
+          `http://localhost:5000/memberships/${existingMembership._id}`,
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
       } else {
-        await axios.post('http://localhost:5000/memberships', formData);
-        alert('Membresía creada con éxito');
+        await axios.post(
+          'http://localhost:5000/memberships',
+          formData,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
       }
       onSuccess();
-    } catch (error) {
-      console.error('Error al guardar la membresía:', error);
-      alert('No se pudo guardar la membresía.');
+    } catch (err) {
+      const errorMsg = (err as any).response?.data?.message || 'Error al guardar la membresía.';
+      setError(Array.isArray(errorMsg) ? errorMsg.join(', ') : errorMsg);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <Input label="Nombre del Plan" type="text" name="name" value={formData.name} onChange={handleChange} placeholder="Ej. Plan Mensual" />
-      <Input label="Precio ($)" type="number" name="price" value={String(formData.price)} onChange={handleChange} placeholder="Ej. 500" />
-      <Input label="Duración (días)" type="number" name="durationInDays" value={String(formData.durationInDays)} onChange={handleChange} placeholder="Ej. 30" />
-      {/* --- NUEVO CAMPO EN EL FORMULARIO --- */}
-      <Input label="Número de Clases" type="number" name="classCount" value={String(formData.classCount)} onChange={handleChange} placeholder="Ej. 8" />
-      <div className="flex justify-end space-x-4 mt-6">
-        <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300">Cancelar</button>
-        <button type="submit" className="px-4 py-2 bg-orange-500 text-white rounded-md hover:bg-orange-600">
-          {isEditMode ? 'Actualizar' : 'Guardar'} Membresía
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <Input
+        label="Nombre del Plan"
+        type="text"
+        name="name"
+        value={formData.name}
+        onChange={handleChange}
+        placeholder="Ej. Plan Mensual"
+        required
+      />
+      
+      <div>
+        <label htmlFor="description" className="block text-sm font-medium text-gray-700">Descripción</label>
+        <textarea
+          id="description"
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          rows={3}
+          className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+          placeholder="Describe brevemente este plan"
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Precio (MXN)"
+          type="number"
+          name="price"
+          value={formData.price.toString()}
+          onChange={handleChange}
+          placeholder="0.00"
+          required
+        />
+        <Input
+          label="Duración (Días)"
+          type="number"
+          name="durationDays"
+          value={formData.durationDays.toString()}
+          onChange={handleChange}
+          placeholder="Ej. 30"
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <Input
+          label="Clases por Semana"
+          type="number"
+          name="classesPerWeek"
+          value={formData.classesPerWeek.toString()}
+          onChange={handleChange}
+          placeholder="Ej. 3"
+          required
+        />
+        <Input
+          label="Clases Totales"
+          type="number"
+          name="totalClasses"
+          value={formData.totalClasses.toString()}
+          onChange={handleChange}
+          placeholder="Ej. 12"
+          required
+        />
+      </div>
+
+      <Input
+        label="Puntos Otorgados"
+        type="number"
+        name="points"
+        value={formData.points.toString()}
+        onChange={handleChange}
+        placeholder="Ej. 50"
+        required
+      />
+      
+      {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+
+      <div className="pt-4 flex justify-end space-x-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className="bg-gray-200 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-300"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="bg-orange-500 text-white py-2 px-4 rounded-md hover:bg-orange-600 disabled:bg-gray-300"
+        >
+          {isLoading ? 'Guardando...' : (existingMembership ? 'Actualizar' : 'Crear')}
         </button>
       </div>
     </form>
