@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import axios, { AxiosError } from 'axios';
 import { Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext'; // Importamos el tipo User
-import Modal from '../components/Modal'; // Para el modal de cancelación
-import { QRCodeSVG } from 'qrcode.react'; // Importamos el generador de QR
+import { useAuth } from '../context/AuthContext';
+import Modal from '../components/Modal';
+import { QRCodeSVG } from 'qrcode.react';
 
 // --- Interfaces ---
 interface MembershipPlan {
@@ -28,20 +28,48 @@ interface Booking {
   };
 }
 
+interface Location {
+  _id: string;
+  name: string;
+  address: string;
+  geo: {
+    coordinates: [number, number]; // [lng, lat]
+  };
+}
+
+// --- Función de Distancia (Haversine) ---
+function getDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const R = 6371; // Radio de la Tierra en km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; // Distancia en km
+}
+
 export default function ClientDashboardPage() {
-  const { user, logout, token } = useAuth(); // 'user' ahora tiene 'points'
+  const { user, logout, token } = useAuth();
   const [memberships, setMemberships] = useState<UserMembership[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   
   // Estados para el modal de cancelación
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [cancelingBookingId, setCancelingBookingId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(false); // Para el modal de cancelación
 
-  // --- Carga de Datos ---
+  // Estados para la geolocalización
+  const [nearestLocation, setNearestLocation] = useState<Location | null>(null);
+  const [distance, setDistance] = useState<number | null>(null);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  // --- Carga de Datos (Reservas y Membresías) ---
   const fetchData = async () => {
     if (!token) return;
     try {
+      // Usamos 'setIsLoading' general para la carga inicial
+      setIsLoading(true); 
       const [membershipsRes, bookingsRes] = await Promise.all([
         axios.get('http://localhost:5000/user-memberships/my-memberships', {
           headers: { Authorization: `Bearer ${token}` },
@@ -54,6 +82,8 @@ export default function ClientDashboardPage() {
       setBookings(bookingsRes.data);
     } catch (error) {
       console.error('Error al cargar los datos del dashboard:', error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -61,9 +91,52 @@ export default function ClientDashboardPage() {
     fetchData();
   }, [token]);
 
-  // --- Lógica de Cancelación ---
+  // --- Geolocalización (Sucursales) ---
+  useEffect(() => {
+    const findNearestLocation = (userLat: number, userLng: number, allLocations: Location[]) => {
+      let closest: Location | null = null;
+      let minDistance = Infinity;
+      for (const loc of allLocations) {
+        const [locLng, locLat] = loc.geo.coordinates;
+        const dist = getDistance(userLat, userLng, locLat, locLng);
+        if (dist < minDistance) {
+          minDistance = dist;
+          closest = loc;
+        }
+      }
+      setNearestLocation(closest);
+      setDistance(minDistance);
+    };
+
+    const fetchLocationsAndRecommend = async (position: GeolocationPosition) => {
+      try {
+        const response = await axios.get('http://localhost:5000/locations');
+        const allLocations: Location[] = response.data;
+        if (allLocations.length > 0) {
+          findNearestLocation(position.coords.latitude, position.coords.longitude, allLocations);
+        }
+      } catch (err) { console.error("Error al cargar sucursales:", err); }
+    };
+
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        fetchLocationsAndRecommend,
+        (error) => {
+          if (error.code === error.PERMISSION_DENIED) {
+            setLocationError("Habilita tu ubicación para ver tu sucursal más cercana.");
+          } else {
+            setLocationError("No se pudo obtener tu ubicación.");
+          }
+        }
+      );
+    } else {
+      setLocationError("La geolocalización no es soportada por este navegador.");
+    }
+  }, []);
+
+  // --- LÓGICA DE CANCELACIÓN (RESTAURADA) ---
   const handleCancelClick = (bookingId: string) => {
-    setCancelingBookingId(bookingId);
+    setCancelingBookingId(bookingId); // <-- ¡CORREGIDO!
     setIsModalOpen(true);
   };
 
@@ -88,17 +161,16 @@ export default function ClientDashboardPage() {
       setCancelingBookingId(null);
     }
   };
+  // --- FIN DE LA LÓGICA RESTAURADA ---
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Navbar del Dashboard */}
+      {/* Navbar */}
       <nav className="bg-white shadow p-4 flex justify-between items-center">
         <Link to="/" className="text-xl font-bold text-orange-500">Gym App</Link>
         <div>
           <span className="mr-4">Hola, {user?.firstName}</span>
-          <Link to="/profile" className="mr-4 text-gray-600 hover:text-orange-500">
-            Mi Perfil
-          </Link>
+          <Link to="/profile" className="mr-4 text-gray-600 hover:text-orange-500">Mi Perfil</Link>
           <button onClick={logout} className="text-red-500 hover:underline">Cerrar Sesión</button>
         </div>
       </nav>
@@ -109,14 +181,33 @@ export default function ClientDashboardPage() {
           Mi Panel de Control
         </h1>
 
+        {/* Widget de Recomendación */}
+        <div className="bg-white p-6 rounded-lg shadow-md mb-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">📍 Sucursal Más Cercana</h2>
+          {locationError && (
+            <p className="text-sm text-yellow-600">{locationError}</p>
+          )}
+          {nearestLocation && distance !== null ? (
+            <div>
+              <p className="text-lg">Tu sucursal recomendada es:</p>
+              <h3 className="text-3xl font-bold text-orange-600">{nearestLocation.name}</h3>
+              <p className="text-gray-600">{nearestLocation.address}</p>
+              <p className="font-semibold mt-2">Estás a ~{distance.toFixed(1)} km de distancia.</p>
+            </div>
+          ) : (
+            !locationError && <p>Calculando tu sucursal más cercana...</p>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
-          {/* Columna Principal: Reservas y Acciones */}
+          {/* Columna Principal: Reservas y QR */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Sección: Mis Próximas Clases */}
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Mis Próximas Clases</h2>
-              {bookings.length > 0 ? (
+              {isLoading ? (
+                 <p>Cargando clases...</p>
+              ) : bookings.length > 0 ? (
                 <div className="space-y-4">
                   {bookings.map(booking => (
                     <div key={booking._id} className="border p-4 rounded-lg flex justify-between items-center">
@@ -137,12 +228,12 @@ export default function ClientDashboardPage() {
               ) : (
                 <p>No tienes clases reservadas. ¡Anímate a reservar una!</p>
               )}
+              {/* TODO: Cambiar este enlace a la página de reservar */}
               <Link to="/schedules" className="mt-6 inline-block bg-orange-500 hover:bg-orange-600 text-white font-bold py-2 px-4 rounded-md">
                 Reservar una Clase Nueva
               </Link>
             </div>
 
-            {/* Sección: Código QR */}
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Mi Pase de Acceso</h2>
               {user ? (
@@ -162,18 +253,18 @@ export default function ClientDashboardPage() {
 
           {/* Columna Lateral: Puntos y Membresías */}
           <div className="lg:col-span-1 space-y-8">
-            
-            {/* Tarjeta de Puntos */}
             <div className="bg-white p-6 rounded-lg shadow-md text-center">
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Mis Puntos</h2>
               <p className="text-6xl font-extrabold text-orange-500">{user?.points || 0}</p>
               <p className="text-gray-500 mt-2">¡Gana más puntos al comprar y asistir!</p>
+              {/* TODO: Añadir enlace a la tienda de puntos */}
             </div>
 
-            {/* Tarjeta de Membresías */}
             <div className="bg-white p-6 rounded-lg shadow-md">
               <h2 className="text-2xl font-bold text-gray-800 mb-4">Mis Membresías</h2>
-              {memberships.filter(m => m.status === 'ACTIVE').length > 0 ? (
+              {isLoading ? (
+                <p>Cargando membresías...</p>
+              ) : memberships.filter(m => m.status === 'ACTIVE').length > 0 ? (
                 <div className="space-y-4">
                   {memberships.filter(m => m.status === 'ACTIVE').map(mem => (
                     <div key={mem._id} className="bg-gradient-to-r from-orange-400 to-yellow-300 p-4 rounded-lg text-white shadow-lg">
@@ -187,7 +278,7 @@ export default function ClientDashboardPage() {
               ) : (
                 <p>No tienes membresías activas.</p>
               )}
-              <Link to="/memberships" className="mt-6 inline-block text-orange-600 font-semibold hover:underline">
+              <Link to="/dashboard/memberships" className="mt-6 inline-block text-orange-600 font-semibold hover:underline">
                 Comprar un nuevo plan
               </Link>
             </div>

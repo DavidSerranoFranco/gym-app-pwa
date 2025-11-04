@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty } from 'class-validator';
+import { IsString, IsNotEmpty, IsNumber, IsLatitude, IsLongitude } from 'class-validator';
 
 export class CreateLocationDto {
   @IsString()
@@ -8,4 +8,12 @@ export class CreateLocationDto {
   @IsString()
   @IsNotEmpty()
   address: string;
+  
+  // --- Campos añadidos ---
+  // Usamos validadores geoespaciales
+  @IsLatitude()
+  latitude: number;
+
+  @IsLongitude()
+  longitude: number;
 }

@@ -11,38 +11,80 @@ export class LocationsService {
     @InjectModel(Location.name) private locationModel: Model<LocationDocument>,
   ) {}
 
-  create(createLocationDto: CreateLocationDto) {
-    const createdLocation = new this.locationModel(createLocationDto);
-    return createdLocation.save();
+  /**
+   * Crear una nueva sucursal
+   */
+  async create(createLocationDto: CreateLocationDto): Promise<Location> {
+    const { name, address, latitude, longitude } = createLocationDto;
+
+    // Convertir a formato GeoJSON
+    const newLocation = new this.locationModel({
+      name,
+      address,
+      geo: {
+        type: 'Point',
+        coordinates: [longitude, latitude], // [lng, lat]
+      },
+    });
+    return newLocation.save();
   }
 
-  findAll() {
+  /**
+   * Encontrar todas las sucursales
+   */
+  async findAll(): Promise<Location[]> {
     return this.locationModel.find().exec();
   }
-
-  async findOne(id: string) {
+  
+  // --- 1. AQUÍ ESTÁ LA CORRECCIÓN (MÉTODO FALTANTE) ---
+  /**
+   * Encontrar una sucursal por ID
+   */
+  async findOne(id: string): Promise<Location> {
     const location = await this.locationModel.findById(id).exec();
     if (!location) {
       throw new NotFoundException(`Sucursal con ID "${id}" no encontrada`);
     }
     return location;
   }
+  // --- FIN DE LA CORRECCIÓN ---
 
-  async update(id: string, updateLocationDto: UpdateLocationDto) {
-    const updatedLocation = await this.locationModel
-      .findByIdAndUpdate(id, updateLocationDto, { new: true })
-      .exec();
-    if (!updatedLocation) {
+  /**
+   * Actualizar una sucursal
+   */
+  async update(id: string, updateLocationDto: UpdateLocationDto): Promise<Location> {
+    // Separamos lat/lng del resto de los datos
+    const { latitude, longitude, ...restOfDto } = updateLocationDto;
+
+    const updateData: any = { ...restOfDto };
+
+    // Si el admin envió AMBAS coordenadas, actualizamos el objeto 'geo'
+    if (latitude !== undefined && longitude !== undefined) {
+      updateData.geo = {
+        type: 'Point',
+        coordinates: [longitude, latitude],
+      };
+    }
+    
+    const existingLocation = await this.locationModel.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true } // 'new: true' devuelve el documento actualizado
+    );
+    
+    if (!existingLocation) {
       throw new NotFoundException(`Sucursal con ID "${id}" no encontrada`);
     }
-    return updatedLocation;
+    return existingLocation;
   }
-
-  async remove(id: string) {
-    const result = await this.locationModel.findByIdAndDelete(id).exec();
-    if (!result) {
+  
+  /**
+   * Eliminar una sucursal
+   */
+  async remove(id: string): Promise<void> {
+    const result = await this.locationModel.deleteOne({ _id: id }).exec();
+    if (result.deletedCount === 0) {
       throw new NotFoundException(`Sucursal con ID "${id}" no encontrada`);
     }
-    return { message: 'Sucursal eliminada exitosamente' };
   }
 }

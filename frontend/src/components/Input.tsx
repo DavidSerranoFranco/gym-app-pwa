@@ -1,30 +1,29 @@
-import React, { useState } from 'react';
+import { useState } from 'react'; // <-- 'type ChangeEvent' se ha eliminado
 
-// Interfaz actualizada
-interface InputProps {
+// 1. Definir los tipos que SIEMPRE queremos (label)
+interface CustomProps {
   label: string;
-  type: string;
-  name: string;
-  placeholder: string;
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  id?: string;
-  required?: boolean;
 }
 
-export default function Input({ type, ...props }: InputProps) {
-  // 1. Estado interno para manejar la visibilidad
+// 2. Extender TODAS las propiedades de un <input> HTML normal
+//    Esto incluye 'type', 'name', 'value', 'onChange', 'placeholder' (opcional), 
+//    'readOnly', 'disabled', 'required', 'min', 'max', etc.
+type InputProps = CustomProps & React.InputHTMLAttributes<HTMLInputElement>;
+
+export default function Input({ label, ...rest }: InputProps) {
+  // 3. Estado interno para manejar la visibilidad
   const [showPassword, setShowPassword] = useState(false);
 
-  // 2. Determinar el tipo de input a mostrar
-  const inputType = type === 'password' && showPassword ? 'text' : type;
+  // 4. Determinar el tipo de input a mostrar
+  //    Usamos 'rest.type' que viene de las propiedades extendidas
+  const inputType = rest.type === 'password' && showPassword ? 'text' : rest.type;
 
-  // 3. Función para cambiar la visibilidad
+  // 5. Función para cambiar la visibilidad
   const toggleVisibility = () => {
     setShowPassword(!showPassword);
   };
 
-  const inputId = props.id || props.name;
+  const inputId = rest.id || rest.name;
 
   return (
     <div>
@@ -32,24 +31,20 @@ export default function Input({ type, ...props }: InputProps) {
         htmlFor={inputId}
         className="block text-sm font-medium text-gray-700"
       >
-        {props.label}
+        {label}
       </label>
       
-      {/* 4. Contenedor relativo para posicionar el icono */}
+      {/* 6. Contenedor relativo para posicionar el icono */}
       <div className="relative mt-1">
         <input
+          {...rest} // Pasar todas las propiedades (name, value, onChange, readOnly, etc.)
           type={inputType} // Usar el tipo dinámico
-          name={props.name}
           id={inputId}
-          placeholder={props.placeholder}
-          value={props.value}
-          onChange={props.onChange}
-          required={props.required}
-          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500"
+          className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-orange-500 focus:border-orange-500 disabled:bg-gray-100 read-only:bg-gray-100"
         />
         
-        {/* 5. Botón de Ojo (solo si el tipo original es 'password') */}
-        {type === 'password' && (
+        {/* 7. Botón de Ojo (solo si el tipo original es 'password') */}
+        {rest.type === 'password' && (
           <button
             type="button"
             onClick={toggleVisibility}
